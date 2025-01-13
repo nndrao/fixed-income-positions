@@ -1,29 +1,28 @@
 function findSelectedViewTitle(layout) {
     // Helper function to traverse the layout tree
-    function traverse(node, parentIsSelected = false) {
-        // Check if this is a component that matches our criteria
-        if (node.type === 'component' && 
-            node.componentName === 'view' && 
-            node.title && 
-            parentIsSelected) {
-            return node.title;
-        }
-
-        // Handle tabset - check if it has a selected property
-        if (node.type === 'tabset' && Array.isArray(node.content)) {
-            const selectedIndex = node.selected || 0;
-            // Only traverse the selected tab
+    function traverse(node, checkIndex = false, targetIndex = 0) {
+        // If this is a tabset or has activeItemIndex, look at the specified child
+        if ((node.type === 'tabset' || node.type === 'stack') && Array.isArray(node.content)) {
+            const selectedIndex = node.selected || node.activeItemIndex || 0;
             if (node.content[selectedIndex]) {
-                const result = traverse(node.content[selectedIndex], true);
-                if (result) return result;
+                // Pass down that we should check index for children
+                return traverse(node.content[selectedIndex], true, selectedIndex);
             }
         }
 
-        // For other container types (row, column, stack)
+        // If this is a component that matches our criteria
+        if (node.type === 'component' && 
+            node.componentName === 'view' && 
+            node.title && 
+            checkIndex) {
+            return node.title;
+        }
+
+        // For other container types (row, column)
         if (node.content && Array.isArray(node.content)) {
-            // Traverse all children
-            for (const child of node.content) {
-                const result = traverse(child, parentIsSelected);
+            for (let i = 0; i < node.content.length; i++) {
+                // For direct children of containers, we don't check index
+                const result = traverse(node.content[i], checkIndex && i === targetIndex, targetIndex);
                 if (result) return result;
             }
         }
@@ -33,30 +32,3 @@ function findSelectedViewTitle(layout) {
 
     return traverse(layout);
 }
-
-// Example usage:
-const sampleLayout = {
-    type: 'row',
-    content: [{
-        type: 'tabset',
-        selected: 1,
-        content: [{
-            type: 'component',
-            title: 'Market Data',
-            componentName: 'view',
-            componentState: {
-                url: 'market-data.html'
-            }
-        }, {
-            type: 'component',
-            title: 'Order Entry',
-            componentName: 'view',
-            componentState: {
-                url: 'order-entry.html'
-            }
-        }]
-    }]
-};
-
-// Test the function
-console.log(findSelectedViewTitle(sampleLayout)); // Should output: "Order Entry"
